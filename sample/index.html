@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChronoCanvas Sample - Dutch Golden Age Gallery</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #2a2a2a;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #3a3a3a;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #999;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .controls {
+      background: #2a2a2a;
+      padding: 1rem 2rem;
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select {
+      background: #3a3a3a;
+      color: white;
+      border: 1px solid #4a4a4a;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      min-width: 200px;
+    }
+
+    select:hover {
+      background: #444;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: #4a90e2;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #357abd;
+    }
+
+    button:active {
+      background: #2a5f8f;
+    }
+
+    .info {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.2rem;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ChronoCanvas Sample Application</h1>
+    <p class="subtitle">Dutch Golden Age Paintings - Demonstrating elliptical zoom navigation</p>
+  </header>
+
+  <main>
+    <div id="canvas-container">
+      <div class="loading" id="loading">Loading image...</div>
+    </div>
+
+    <div class="controls">
+      <select id="image-selector">
+        <option value="milkmaid">The Milkmaid - Vermeer (c. 1660)</option>
+        <option value="durer" selected>Melencolia I - Dürer (1514)</option>
+        <option value="avercamp">Winter Landscape - Avercamp (c. 1608)</option>
+      </select>
+      <div class="button-group">
+        <button id="btn-full">Full View</button>
+        <button id="btn-zoom-1">Zoom 1</button>
+        <button id="btn-zoom-2">Zoom 2</button>
+      </div>
+      <div class="info">
+        Use mouse wheel to zoom • Click and drag to pan
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/main.ts"></script>
+</body>
+</html>
