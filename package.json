@@ -1,7 +1,7 @@
 {
   "name": "chronocanvas",
   "version": "0.1.0",
-  "description": "Modern TypeScript library for canvas navigation with elliptical zoom, extracted from ChronoZoom",
+  "description": "HTML5 Canvas rendering engine with smooth navigation and elliptical zoom feature, extracted from ChronoZoom",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
