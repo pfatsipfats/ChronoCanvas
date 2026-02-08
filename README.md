@@ -4,6 +4,12 @@ Port of rendering engine from [ChronoZoom](https://github.com/alterm4nn/ChronoZo
 
 [![CI](https://github.com/pfatsipfats/ChronoCanvas/actions/workflows/ci.yml/badge.svg)](https://github.com/pfatsipfats/ChronoCanvas/actions/workflows/ci.yml)
 
+## Demo
+
+[Live Demo](https://pfatsipfats.github.io/ChronoCanvas/)
+
+Explore the interactive ChronoCanvas sample application featuring Dutch Golden Age paintings with elliptical zoom navigation.
+
 ## Features
 
 HTML5 Canvas rendering engine with smooth navigation and elliptical zoom feature.
