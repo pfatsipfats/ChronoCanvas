@@ -1,0 +1,43 @@
+{
+  "name": "chronocanvas",
+  "version": "0.1.0",
+  "description": "Modern TypeScript library for canvas navigation with elliptical zoom, extracted from ChronoZoom",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "canvas",
+    "zoom",
+    "pan",
+    "navigation",
+    "elliptical-zoom",
+    "viewport",
+    "rxjs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.32",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}
