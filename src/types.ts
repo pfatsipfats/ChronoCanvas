@@ -58,6 +58,9 @@ export interface IRenderer {
  * Configuration for ChronoCanvas behavior
  */
 export interface ChronoCanvasOptions {
+  /** Aspect ratio of the viewport (default: 1.0) for uniform image scaling */
+  aspectRatio?: number;
+  
   /** How far to zoom out during elliptical zoom (0-1, default 0.5) */
   ellipticalZoomZoomoutFactor?: number;
   

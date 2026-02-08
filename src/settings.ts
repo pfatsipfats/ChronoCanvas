@@ -26,6 +26,9 @@ export const DEFAULT_SETTINGS: Required<ChronoCanvasOptions> = {
   
   /** Target frames per second for animations */
   targetFps: 60,
+  
+  /** Aspect ratio of the viewport (default: 1.0) for uniform image scaling */
+  aspectRatio: 1.0,
 };
 
 /**

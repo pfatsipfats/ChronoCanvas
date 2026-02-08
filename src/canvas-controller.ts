@@ -21,29 +21,6 @@ import { SingleImageSource } from './single-image-source';
  * - Manage lifecycle (initialization, cleanup)
  * - Provide public API
  * 
- * @example
- * Basic usage:
- * ```typescript
- * const canvas = new ChronoCanvas(document.getElementById('container')!, {
- *   ellipticalZoomDuration: 2000,
- *   zoomLevelFactor: 1.4
- * });
- * 
- * // Load and display image
- * const img = new Image();
- * img.onload = () => {
- *   canvas.setContent(img);
- *   canvas.fitToView();
- * };
- * img.src = 'path/to/image.jpg';
- * ```
- * 
- * @example
- * Advanced usage with custom renderer:
- * ```typescript
- * const customRenderer = new MyCustomRenderer(container);
- * const canvas = new ChronoCanvas(container, options, customRenderer);
- * ```
  */
 export class ChronoCanvas {
   private viewport: Viewport2d;
@@ -59,6 +36,7 @@ export class ChronoCanvas {
    * Creates a new ChronoCanvas instance
    * 
    * @param container - HTML element to render into
+   * @param aspectRatio - Aspect ratio of the viewport (default: 1.0) for uniform image scaling
    * @param options - Configuration options (merged with defaults)
    * @param renderer - Custom renderer (optional, defaults to CanvasRenderer)
    * 
@@ -81,11 +59,8 @@ export class ChronoCanvas {
     const rect = container.getBoundingClientRect();
     
     // Initialize viewport with default visible region
-    // ChronoZoom's aspect ratio represents the relationship between horizontal and vertical virtual units.
-    // For uniform image display (not timeline), aspectRatio = 1.0 provides equal X/Y scaling.
-    const aspectRatio = 1.0;
     this.viewport = new Viewport2d(
-      aspectRatio,
+      this.settings.aspectRatio,
       rect.width,
       rect.height,
       new VisibleRegion2d(0, 0, 1.0) // Centered at origin, scale 1.0
@@ -96,20 +71,6 @@ export class ChronoCanvas {
     
     // Initial render
     this.renderer.render(this.viewport);
-  }
-
-  /**
-   * Calculates aspect ratio from current viewport dimensions
-   * @returns Aspect ratio (always 1.0 for uniform image scaling)
-   * 
-   * @remarks
-   * ChronoZoom's aspect ratio was designed for timeline-based content where horizontal (time)
-   * and vertical (content) axes have different semantic meanings. For image display,
-   * aspectRatio = 1.0 ensures uniform X/Y coordinate transformations.
-   */
-  private getAspectRatio(): number {
-    const ratio = 1.0;
-    return ratio;
   }
 
   /**
@@ -166,7 +127,7 @@ export class ChronoCanvas {
     );
     
     const targetViewport = new Viewport2d(
-      this.getAspectRatio(),
+      this.settings.aspectRatio,
       this.viewport.width,
       this.viewport.height,
       targetVisible
@@ -208,7 +169,7 @@ export class ChronoCanvas {
     );
     
     const targetViewport = new Viewport2d(
-      this.getAspectRatio(),
+      this.settings.aspectRatio,
       this.viewport.width,
       this.viewport.height,
       targetVisible
@@ -236,7 +197,7 @@ export class ChronoCanvas {
   private setVisible(newVisible: VisibleRegion2d): void {
     // Update viewport
     this.viewport = new Viewport2d(
-      this.getAspectRatio(),
+      this.settings.aspectRatio,
       this.viewport.width,
       this.viewport.height,
       newVisible

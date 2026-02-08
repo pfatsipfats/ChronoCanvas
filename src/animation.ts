@@ -1,5 +1,5 @@
 /**
- * Animation module - implements elliptical zoom animation.
+ * Animation module.
  * Ported from ChronoZoom's viewport-animation.js with TypeScript.
  */
 
