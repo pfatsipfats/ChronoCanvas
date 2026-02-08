@@ -1,100 +1,328 @@
 /**
  * ChronoCanvas Sample Application
  * 
- * Demonstrates elliptical zoom navigation on Dürer's Melencolia I engraving.
+ * Multi-image gallery featuring Dutch Golden Age paintings with elliptical zoom.
  * Features:
+ * - Three different artworks (single image + tiled images)
+ * - Dynamic zoom buttons contextual to each painting
  * - Smooth elliptical zoom animations
- * - Mouse wheel zoom
- * - Click and drag panning
- * - Preset zoom views to interesting details
+ * - Mouse wheel zoom and click-drag panning
  */
 
-import { ChronoCanvas } from 'chronocanvas';
+import { ChronoCanvas, TiledImageSource, SingleImageSource } from 'chronocanvas';
 
-// Get DOM elements
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+interface ZoomPreset {
+  label: string;
+  centerX: number;
+  centerY: number;
+  scale: number;
+}
+
+interface TiledImageConfig {
+  baseUrl: string;
+  rows: number;
+  cols: number;
+  tileWidth: number;
+  tileHeight: number;
+  urlPattern: string;
+}
+
+interface SingleImageConfig {
+  url: string;
+}
+
+interface ImageConfig {
+  id: string;
+  name: string;
+  artist: string;
+  year: string;
+  type: 'single' | 'tiled';
+  source: SingleImageConfig | TiledImageConfig;
+  zoomPresets: ZoomPreset[];
+}
+
+// ============================================================================
+// IMAGE CONFIGURATIONS
+// ============================================================================
+
+const images: ImageConfig[] = [
+  {
+    id: 'milkmaid',
+    name: 'The Milkmaid',
+    artist: 'Johannes Vermeer',
+    year: 'c. 1660',
+    type: 'single',
+    source: {
+      url: 'https://micrio.rijksmuseum.nl/QkOGy/2/0-0.jpg'
+    },
+    zoomPresets: [
+      {
+        label: 'Zoom to Milk Stream',
+        centerX: -103,
+        centerY: 269,
+        scale: 0.2276
+      },
+      {
+        label: 'Zoom to face',
+        centerX: 179,
+        centerY: -175,
+        scale: 0.3759
+      }
+    ]
+  },
+  {
+    id: 'durer',
+    name: 'Melencolia I',
+    artist: 'Albrecht Dürer',
+    year: '1514',
+    type: 'tiled',
+    source: {
+      baseUrl: 'https://rijks-micrio.azureedge.net/zWsdM/0/',
+      rows: 5,
+      cols: 4,
+      tileWidth: 1024,
+      tileHeight: 1024,
+      urlPattern: '{x}-{y}.jpg'
+    },
+    zoomPresets: [
+      {
+        label: 'Zoom to Magic Square',
+        centerX: 1417, 
+        centerY: -1433,
+        scale:  0.9667
+      },
+      {
+        label: 'Zoom to Polyhedron',
+        centerX: -1131,
+        centerY: -135,
+        scale: 2.3307
+      }
+    ]
+  },
+  {
+    id: 'avercamp',
+    name: 'Winter Landscape with Ice Skaters',
+    artist: 'Hendrick Avercamp',
+    year: 'c. 1608',
+    type: 'tiled',
+    source: {
+      baseUrl: 'https://micrio.rijksmuseum.nl/aXnzA/0/',
+      rows: 4,
+      cols: 7,
+      tileWidth: 1024,
+      tileHeight: 1024,
+      urlPattern: '{x}-{y}.jpg'
+    },
+    zoomPresets: [
+      {
+        label: 'Zoom to Ice Skaters',
+        centerX: 652,
+        centerY: 517,
+        scale: 0.9075
+      },
+      {
+        label: 'Zoom to Ice Hole',
+        centerX: -1955,    
+        centerY: 849,
+        scale: 0.5118
+      }
+    ]
+  }
+];
+
+// ============================================================================
+// DOM ELEMENTS
+// ============================================================================
+
 const container = document.getElementById('canvas-container')!;
 const loading = document.getElementById('loading')!;
+const imageSelector = document.getElementById('image-selector') as HTMLSelectElement;
 const btnFull = document.getElementById('btn-full')!;
-const btnMagicSquare = document.getElementById('btn-magic-square')!;
-const btnPolyhedron = document.getElementById('btn-polyhedron')!;
+const btnZoom1 = document.getElementById('btn-zoom-1')!;
+const btnZoom2 = document.getElementById('btn-zoom-2')!;
 
-// Create ChronoCanvas instance with custom settings
+// ============================================================================
+// CHRONOCANVAS INSTANCE
+// ============================================================================
+
 const canvas = new ChronoCanvas(container, {
-  ellipticalZoomDuration: 2500,  // Slightly faster than default
-  ellipticalZoomZoomoutFactor: 0.6,  // More dramatic zoom-out
-  zoomLevelFactor: 1.3,  // Gentler wheel zoom
+  ellipticalZoomDuration: 9000,
+  ellipticalZoomZoomoutFactor: 0.6,
+  zoomLevelFactor: 1.3,
 });
 
-// Load Dürer's Melencolia I from Christie's
-const img = new Image();
-img.crossOrigin = 'anonymous'; // For CORS if needed
+// Expose canvas to window for debugging in browser console
+(window as any).canvas = canvas;
 
-img.onload = () => {
-  // Hide loading message
-  loading.style.display = 'none';
-  
-  // Set image and fit to view
-  canvas.setContent(img);
-  canvas.fitToView(true); // Immediate, no animation on first load
-  
-  console.log('Image loaded:', img.naturalWidth, 'x', img.naturalHeight);
-};
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
 
-img.onerror = () => {
-  loading.textContent = 'Failed to load image. Using fallback...';
-  
-  // If the Christie's URL fails, try a direct link or show error
-  console.error('Failed to load image from primary source');
-};
+let currentImage: ImageConfig | null = null;
+let currentSource: TiledImageSource | SingleImageSource | null = null;
+let loadingCheckInterval: number | null = null;
 
-// Dürer's Melencolia I 
-img.src = 'https://rijks-micrio.azureedge.net/zWsdM/1/0-0.jpg';
-
-// Button event handlers
+// ============================================================================
+// CORE FUNCTIONS
+// ============================================================================
 
 /**
- * Full View - Shows the entire engraving
+ * Updates the zoom button labels and handlers based on current image
  */
+function updateZoomButtons(zoomPresets: ZoomPreset[]): void {
+  if (zoomPresets.length >= 1) {
+    btnZoom1.textContent = zoomPresets[0].label;
+    btnZoom1.style.display = 'block';
+    btnZoom1.onclick = () => {
+      canvas.zoomTo({
+        centerX: zoomPresets[0].centerX,
+        centerY: zoomPresets[0].centerY,
+        scale: zoomPresets[0].scale
+      });
+    };
+  } else {
+    btnZoom1.style.display = 'none';
+  }
+
+  if (zoomPresets.length >= 2) {
+    btnZoom2.textContent = zoomPresets[1].label;
+    btnZoom2.style.display = 'block';
+    btnZoom2.onclick = () => {
+      canvas.zoomTo({
+        centerX: zoomPresets[1].centerX,
+        centerY: zoomPresets[1].centerY,
+        scale: zoomPresets[1].scale
+      });
+    };
+  } else {
+    btnZoom2.style.display = 'none';
+  }
+}
+
+/**
+ * Loads an image configuration into the canvas
+ */
+async function loadImage(config: ImageConfig): Promise<void> {
+  // Clear any existing loading check
+  if (loadingCheckInterval !== null) {
+    clearInterval(loadingCheckInterval);
+    loadingCheckInterval = null;
+  }
+
+  // Show loading indicator
+  loading.style.display = 'block';
+  loading.textContent = `Loading ${config.name}...`;
+
+  // Clean up previous source if exists
+  if (currentSource) {
+    currentSource.destroy();
+    currentSource = null;
+  }
+
+  currentImage = config;
+
+  try {
+    if (config.type === 'tiled') {
+      // Load tiled image source
+      const tiledConfig = config.source as TiledImageConfig;
+      console.log(`Loading tiled image: ${config.name} (${tiledConfig.cols}x${tiledConfig.rows} grid)`);
+      
+      const tiledSource = new TiledImageSource(tiledConfig);
+      currentSource = tiledSource;
+      canvas.setContentSource(tiledSource);
+      canvas.fitToView(true);
+
+      // Monitor loading progress
+      loadingCheckInterval = window.setInterval(() => {
+        if (tiledSource.isReady()) {
+          loading.style.display = 'none';
+          console.log('All tiles loaded successfully');
+          if (loadingCheckInterval !== null) {
+            clearInterval(loadingCheckInterval);
+            loadingCheckInterval = null;
+          }
+        }
+      }, 500);
+    } else {
+      // Load single image
+      const singleConfig = config.source as SingleImageConfig;
+      console.log(`Loading single image: ${config.name}`);
+      
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          loading.style.display = 'none';
+          const singleSource = new SingleImageSource(img);
+          currentSource = singleSource;
+          canvas.setContentSource(singleSource);
+          canvas.fitToView(true);
+          console.log('Single image loaded:', img.naturalWidth, 'x', img.naturalHeight);
+          resolve();
+        };
+        
+        img.onerror = () => {
+          loading.textContent = `Failed to load ${config.name}`;
+          console.error('Failed to load single image');
+          reject(new Error('Failed to load image'));
+        };
+        
+        img.src = singleConfig.url;
+      });
+    }
+
+    // Update zoom buttons for this image
+    updateZoomButtons(config.zoomPresets);
+  } catch (error) {
+    console.error('Error loading image:', error);
+    loading.textContent = 'Error loading image';
+  }
+}
+
+/**
+ * Handles image selection change
+ */
+function handleImageChange(imageId: string): void {
+  const config = images.find(img => img.id === imageId);
+  if (config) {
+    loadImage(config);
+  }
+}
+
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+// Image selector change
+imageSelector.addEventListener('change', () => {
+  handleImageChange(imageSelector.value);
+});
+
+// Full view button (always available)
 btnFull.onclick = () => {
   canvas.fitToView();
 };
 
-/**
- * Magic Square - Zooms to the famous 4x4 magic square in the upper right
- * The magic square is a 4x4 grid where every row, column, and diagonal sums to 34.
- * It also contains the date 1514 in the bottom middle cells.
- */
-btnMagicSquare.onclick = () => {
-  // Magic square is in the upper right portion of the engraving
-  // These coordinates are approximate based on the composition
-  canvas.zoomTo({
-    centerX: 250,   // Right side
-    centerY: -200,  // Upper area
-    scale: 0.02     // Zoomed in quite close
-  });
-};
-
-/**
- * Polyhedron - Zooms to the mysterious geometric solid on the left
- * Known as "Dürer's solid", this truncated rhombohedron has puzzled
- * scholars for centuries.
- */
-btnPolyhedron.onclick = () => {
-  // Polyhedron is on the left side, slightly below center
-  canvas.zoomTo({
-    centerX: -300,  // Left side
-    centerY: 100,   // Slightly below center
-    scale: 0.03     // Moderately zoomed
-  });
-};
-
-// Handle window resize
+// Window resize
 window.addEventListener('resize', () => {
   canvas.updateViewport();
 });
 
-// Log keyboard shortcuts for advanced users
-console.log('ChronoCanvas Sample - Keyboard Tips:');
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+// Load the default selected image on startup
+const defaultImageId = imageSelector.value;
+handleImageChange(defaultImageId);
+
+console.log('ChronoCanvas Multi-Image Sample');
+console.log('- Use dropdown to switch between artworks');
 console.log('- Mouse wheel: Zoom in/out');
 console.log('- Click and drag: Pan the image');
 console.log('- Buttons: Jump to interesting details');

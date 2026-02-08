@@ -5,6 +5,7 @@
 
 import { IRenderer } from './types';
 import { Viewport2d } from './viewport';
+import { IContentSource } from './content-source';
 
 /**
  * Canvas-based renderer for images.
@@ -15,21 +16,13 @@ import { Viewport2d } from './viewport';
  * @remarks
  * This is a simplified version compared to ChronoZoom's VirtualCanvas:
  * - Single canvas (no layers)
- * - Image rendering only (no complex content tree)
+ * - Content source abstraction (supports different content types)
  * - Direct rendering (no caching or optimization)
  */
 export class CanvasRenderer implements IRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private image: HTMLImageElement | null = null;
-  
-  // Virtual bounds of the content in virtual space
-  private contentBounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null = null;
+  private contentSource: IContentSource | null = null;
 
   /**
    * Creates a canvas renderer
@@ -38,7 +31,8 @@ export class CanvasRenderer implements IRenderer {
    * @example
    * ```typescript
    * const renderer = new CanvasRenderer(document.getElementById('container')!);
-   * renderer.setContent(imageElement);
+   * const source = new SingleImageSource(imageElement);
+   * renderer.setContent(source);
    * renderer.render(viewport);
    * ```
    */
@@ -86,23 +80,14 @@ export class CanvasRenderer implements IRenderer {
 
   /**
    * Sets the content to render
-   * @param content - Image element to display
+   * @param content - Content source to display
    * 
    * @remarks
-   * The image is positioned in virtual space with origin at (0, 0)
-   * and dimensions matching the image's natural size.
+   * The content source defines its own bounds in virtual space
+   * and handles its own rendering logic.
    */
-  setContent(content: HTMLImageElement): void {
-    this.image = content;
-    
-    // Define content bounds in virtual space
-    // Image is centered at origin, spans from (-width/2, -height/2) to (width/2, height/2)
-    this.contentBounds = {
-      x: -content.naturalWidth / 2,
-      y: -content.naturalHeight / 2,
-      width: content.naturalWidth,
-      height: content.naturalHeight
-    };
+  setContent(content: IContentSource): void {
+    this.contentSource = content;
   }
 
   /**
@@ -112,8 +97,8 @@ export class CanvasRenderer implements IRenderer {
    * @remarks
    * Rendering steps:
    * 1. Clear canvas
-   * 2. Calculate image position in screen space
-   * 3. Draw image with appropriate transform
+   * 2. Fill background
+   * 3. Delegate drawing to content source
    */
   render(viewport: Viewport2d): void {
     // Clear canvas
@@ -123,35 +108,13 @@ export class CanvasRenderer implements IRenderer {
     this.ctx.fillStyle = '#232323'; // ChronoZoom's background color
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // If no image, nothing to render
-    if (!this.image || !this.contentBounds) {
+    // If no content source, nothing to render
+    if (!this.contentSource) {
       return;
     }
     
-    // Calculate image corners in virtual space
-    const virtualTopLeft = {
-      x: this.contentBounds.x,
-      y: this.contentBounds.y
-    };
-    
-    // Convert to screen space
-    const screenTopLeft = viewport.pointVirtualToScreen(
-      virtualTopLeft.x,
-      virtualTopLeft.y
-    );
-    
-    // Calculate screen dimensions
-    const screenWidth = viewport.widthVirtualToScreen(this.contentBounds.width);
-    const screenHeight = viewport.heightVirtualToScreen(this.contentBounds.height);
-    
-    // Draw image
-    this.ctx.drawImage(
-      this.image,
-      screenTopLeft.x,
-      screenTopLeft.y,
-      screenWidth,
-      screenHeight
-    );
+    // Let the content source draw itself
+    this.contentSource.draw(this.ctx, viewport);
   }
 
   /**
@@ -159,27 +122,31 @@ export class CanvasRenderer implements IRenderer {
    * @returns Visible region that shows all content
    * 
    * @remarks
-   * Useful for "fit to view" functionality
+   * Useful for "fit to view" functionality.
+   * Scale represents virtual units per pixel - larger scale = more zoomed out.
    */
   getContentFitRegion(): { centerX: number; centerY: number; scale: number } | null {
-    if (!this.contentBounds) {
+    if (!this.contentSource) {
       return null;
     }
     
+    const bounds = this.contentSource.getBounds();
+    
     // Calculate scale to fit content in viewport
     const canvasAspect = this.canvas.width / this.canvas.height;
-    const contentAspect = this.contentBounds.width / this.contentBounds.height;
+    const contentAspect = bounds.width / bounds.height;
     
     let scale: number;
     if (contentAspect > canvasAspect) {
       // Content is wider, fit to width
-      scale = this.contentBounds.width / this.canvas.width;
+      // Scale = virtual units per pixel, so use canvas / content
+      scale = bounds.width / this.canvas.width;
     } else {
       // Content is taller, fit to height
-      scale = this.contentBounds.height / this.canvas.height;
+      scale = bounds.height / this.canvas.height;
     }
     
-    // Add 10% padding
+    // Add 10% padding (scale up = zoom out slightly)
     scale *= 1.1;
     
     // Center is content center (0, 0 in our coordinate system)

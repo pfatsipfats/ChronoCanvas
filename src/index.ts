@@ -17,6 +17,11 @@ export { VisibleRegion2d, Viewport2d } from './viewport';
 export { EllipticalZoom, PanZoomAnimation } from './animation';
 export { CanvasRenderer } from './renderer';
 
+// Content sources
+export type { IContentSource } from './content-source';
+export { SingleImageSource } from './single-image-source';
+export { TiledImageSource, type TileConfig } from './tiled-image-source';
+
 // Gestures
 export { createGestureStream } from './gestures';
 export type { PanGesture, ZoomGesture, PinGesture, Gesture, GestureType } from './gestures';

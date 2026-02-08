@@ -3,6 +3,7 @@
  */
 
 import { VisibleRegion2d, Viewport2d } from './viewport';
+import { IContentSource } from './content-source';
 
 /**
  * 2D point in any coordinate system
@@ -43,9 +44,9 @@ export interface IRenderer {
   
   /**
    * Sets the content to render
-   * @param content - Image or other renderable content
+   * @param content - Content source (single image, tiled image, etc.)
    */
-  setContent(content: HTMLImageElement): void;
+  setContent(content: IContentSource): void;
   
   /**
    * Cleanup renderer resources

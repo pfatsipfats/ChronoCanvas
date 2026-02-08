@@ -2,6 +2,8 @@
 
 Port of rendering engine from [ChronoZoom](https://github.com/alterm4nn/ChronoZoom).
 
+[![CI](https://github.com/pfatsipfats/ChronoCanvas/actions/workflows/ci.yml/badge.svg)](https://github.com/pfatsipfats/ChronoCanvas/actions/workflows/ci.yml)
+
 ## Features
 
 HTML5 Canvas rendering engine with smooth navigation and elliptical zoom feature.

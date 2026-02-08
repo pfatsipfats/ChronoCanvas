@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChronoCanvas Sample - Dürer's Melencolia I</title>
+  <title>ChronoCanvas Sample - Dutch Golden Age Gallery</title>
   <style>
     * {
       margin: 0;
@@ -57,6 +57,28 @@
       display: flex;
       gap: 1rem;
       align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select {
+      background: #3a3a3a;
+      color: white;
+      border: 1px solid #4a4a4a;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      min-width: 200px;
+    }
+
+    select:hover {
+      background: #444;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
 
     button {
@@ -98,7 +120,7 @@
 <body>
   <header>
     <h1>ChronoCanvas Sample Application</h1>
-    <p class="subtitle">Dürer's Melencolia I (1514) - Demonstrating elliptical zoom navigation</p>
+    <p class="subtitle">Dutch Golden Age Paintings - Demonstrating elliptical zoom navigation</p>
   </header>
 
   <main>
@@ -107,9 +129,16 @@
     </div>
 
     <div class="controls">
-      <button id="btn-full">Full View</button>
-      <button id="btn-magic-square">Zoom to Magic Square</button>
-      <button id="btn-polyhedron">Zoom to Polyhedron</button>
+      <select id="image-selector">
+        <option value="milkmaid">The Milkmaid - Vermeer (c. 1660)</option>
+        <option value="durer" selected>Melencolia I - Dürer (1514)</option>
+        <option value="avercamp">Winter Landscape - Avercamp (c. 1608)</option>
+      </select>
+      <div class="button-group">
+        <button id="btn-full">Full View</button>
+        <button id="btn-zoom-1">Zoom 1</button>
+        <button id="btn-zoom-2">Zoom 2</button>
+      </div>
       <div class="info">
         Use mouse wheel to zoom • Click and drag to pan
       </div>

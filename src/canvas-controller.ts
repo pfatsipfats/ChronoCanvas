@@ -9,6 +9,8 @@ import { createGestureStream, PanGesture, ZoomGesture, PinGesture } from './gest
 import { EllipticalZoom, PanZoomAnimation } from './animation';
 import { CanvasRenderer } from './renderer';
 import { mergeSettings } from './settings';
+import { IContentSource } from './content-source';
+import { SingleImageSource } from './single-image-source';
 
 /**
  * Main controller for the ChronoCanvas library.
@@ -79,8 +81,11 @@ export class ChronoCanvas {
     const rect = container.getBoundingClientRect();
     
     // Initialize viewport with default visible region
+    // ChronoZoom's aspect ratio represents the relationship between horizontal and vertical virtual units.
+    // For uniform image display (not timeline), aspectRatio = 1.0 provides equal X/Y scaling.
+    const aspectRatio = 1.0;
     this.viewport = new Viewport2d(
-      1.0, // aspectRatio
+      aspectRatio,
       rect.width,
       rect.height,
       new VisibleRegion2d(0, 0, 1.0) // Centered at origin, scale 1.0
@@ -91,6 +96,20 @@ export class ChronoCanvas {
     
     // Initial render
     this.renderer.render(this.viewport);
+  }
+
+  /**
+   * Calculates aspect ratio from current viewport dimensions
+   * @returns Aspect ratio (always 1.0 for uniform image scaling)
+   * 
+   * @remarks
+   * ChronoZoom's aspect ratio was designed for timeline-based content where horizontal (time)
+   * and vertical (content) axes have different semantic meanings. For image display,
+   * aspectRatio = 1.0 ensures uniform X/Y coordinate transformations.
+   */
+  private getAspectRatio(): number {
+    const ratio = 1.0;
+    return ratio;
   }
 
   /**
@@ -147,7 +166,7 @@ export class ChronoCanvas {
     );
     
     const targetViewport = new Viewport2d(
-      this.viewport.aspectRatio,
+      this.getAspectRatio(),
       this.viewport.width,
       this.viewport.height,
       targetVisible
@@ -189,7 +208,7 @@ export class ChronoCanvas {
     );
     
     const targetViewport = new Viewport2d(
-      this.viewport.aspectRatio,
+      this.getAspectRatio(),
       this.viewport.width,
       this.viewport.height,
       targetVisible
@@ -217,7 +236,7 @@ export class ChronoCanvas {
   private setVisible(newVisible: VisibleRegion2d): void {
     // Update viewport
     this.viewport = new Viewport2d(
-      this.viewport.aspectRatio,
+      this.getAspectRatio(),
       this.viewport.width,
       this.viewport.height,
       newVisible
@@ -269,6 +288,10 @@ export class ChronoCanvas {
    * 
    * @param image - Image element to render
    * 
+   * @remarks
+   * Convenience method that automatically wraps the image in a SingleImageSource.
+   * For more advanced usage (e.g., tiled images), use setContentSource() instead.
+   * 
    * @example
    * ```typescript
    * const img = new Image();
@@ -277,7 +300,33 @@ export class ChronoCanvas {
    * ```
    */
   setContent(image: HTMLImageElement): void {
-    this.renderer.setContent(image);
+    const source = new SingleImageSource(image);
+    this.renderer.setContent(source);
+    this.renderer.render(this.viewport);
+  }
+
+  /**
+   * Sets the content source to display
+   * 
+   * @param source - Content source (single image, tiled image, etc.)
+   * 
+   * @remarks
+   * Advanced method for using custom content sources like TiledImageSource.
+   * 
+   * @example
+   * ```typescript
+   * const tiledSource = new TiledImageSource({
+   *   baseUrl: 'https://example.com/tiles/',
+   *   rows: 5,
+   *   cols: 4,
+   *   tileWidth: 1024,
+   *   tileHeight: 1024
+   * });
+   * canvas.setContentSource(tiledSource);
+   * ```
+   */
+  setContentSource(source: IContentSource): void {
+    this.renderer.setContent(source);
     this.renderer.render(this.viewport);
   }
 
@@ -363,6 +412,10 @@ export class ChronoCanvas {
   /**
    * Updates viewport dimensions (call when container resizes)
    * 
+   * Maintains the visual zoom level and center position while updating
+   * the viewport dimensions. The image stays at the same zoom - the window
+   * just reveals more or less of the canvas area.
+   * 
    * @example
    * ```typescript
    * window.addEventListener('resize', () => {
@@ -372,11 +425,18 @@ export class ChronoCanvas {
    */
   updateViewport(): void {
     const rect = this.container.getBoundingClientRect();
+    
+    // ChronoZoom's aspect ratio: 1.0 for uniform X/Y scaling in image display
+    const aspectRatio = 1.0;
+    
+    // Keep the same visible region (center and scale) - just update dimensions
+    // This makes the image stay at the same zoom level; the window size change
+    // simply reveals more or less of the image
     this.viewport = new Viewport2d(
-      this.viewport.aspectRatio,
+      aspectRatio,
       rect.width,
       rect.height,
-      this.viewport.visible
+      this.viewport.visible  // Keep existing center and scale
     );
     this.renderer.render(this.viewport);
   }
