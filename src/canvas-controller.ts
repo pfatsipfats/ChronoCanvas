@@ -80,8 +80,8 @@ export class ChronoCanvas {
     // Get the canvas element from renderer
     const canvas = (this.renderer as CanvasRenderer).getCanvas();
     
-    // Create gesture stream
-    const gestures$ = createGestureStream(canvas, this.settings);
+    // Create gesture stream (use canvas for coordinates - matches zoom calculation)
+    const gestures$ = createGestureStream(canvas, canvas, this.settings);
     
     // Subscribe to gestures
     this.gestureSubscription = gestures$.subscribe(gesture => {
@@ -153,40 +153,64 @@ export class ChronoCanvas {
    * @param xOrigin - X position of zoom origin in screen coordinates
    * @param yOrigin - Y position of zoom origin in screen coordinates
    * @param scaleFactor - Scale multiplication factor
+   *
+   * Uses ChronoZoom's formula: the point under the cursor stays fixed.
+   * We compute where the new center will appear on screen after zoom,
+   * then convert that screen position to virtual coordinates (using current viewport).
    */
   private handleZoom(xOrigin: number, yOrigin: number, scaleFactor: number): void {
-    // Convert zoom origin to virtual coordinates
-    const virtualOrigin = this.viewport.pointScreenToVirtual(xOrigin, yOrigin);
-    
-    // Calculate new scale
-    const newScale = this.viewport.visible.scale * scaleFactor;
-    
-    // Calculate target viewport (zoom toward/away from cursor)
-    const targetVisible = new VisibleRegion2d(
-      virtualOrigin.x,
-      virtualOrigin.y,
-      newScale
+    // Use canvas dimensions - must match renderer's coordinate system
+    const canvas = (this.renderer as CanvasRenderer).getCanvas();
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Sync viewport dimensions for animation consistency
+    this.viewport = new Viewport2d(
+      this.settings.aspectRatio,
+      width,
+      height,
+      this.viewport.visible
     );
-    
+
+    const viewportForZoom = new Viewport2d(
+      this.settings.aspectRatio,
+      width,
+      height,
+      this.viewport.visible
+    );
+    const virtualAtCursor = viewportForZoom.pointScreenToVirtual(xOrigin, yOrigin);
+    // Use animation target as base when zooming during animation - accumulates rapid wheel scrolls
+    const baseVisible = this.animation instanceof PanZoomAnimation && this.animation.targetVisible
+      ? this.animation.targetVisible
+      : this.viewport.visible;
+    const newScale = baseVisible.scale * scaleFactor;
+
+    // Keep point under cursor at (xOrigin, yOrigin) - NOT at screen center.
+    // Solve: (virtualAtCursor - newCenter) / newScale maps to (xOrigin, yOrigin)
+    // pointVirtualToScreen: screenX = (vx - cx)/scale + width/2
+    // So: (virtualAtCursor.x - newCenterX)/newScale + width/2 = xOrigin
+    // => newCenterX = virtualAtCursor.x - (xOrigin - width/2) * newScale
+    const newCenterX = virtualAtCursor.x - (xOrigin - width / 2) * newScale;
+    const newCenterY = virtualAtCursor.y - (yOrigin - height / 2) * (this.settings.aspectRatio * newScale);
+
+    const targetVisible = new VisibleRegion2d(newCenterX, newCenterY, newScale);
+
     const targetViewport = new Viewport2d(
       this.settings.aspectRatio,
-      this.viewport.width,
-      this.viewport.height,
+      width,
+      height,
       targetVisible
     );
-    
-    // Create or update PanZoomAnimation for smooth inertia
+
+    // Use animation for smooth zoom (~1 sec, zoom-to-point)
     if (!this.animation || !(this.animation instanceof PanZoomAnimation)) {
-      // Create new zoom animation
       const zoomAnimation = new PanZoomAnimation(this.viewport);
-      zoomAnimation.setVelocity(this.settings.zoomSpeedFactor * 0.001);
+      zoomAnimation.setVelocity(0.005); // ~1 sec for typical zoom
       this.animation = zoomAnimation;
       this.startAnimationLoop();
     }
-    
-    // Update target (supports continuous gestures)
     if (this.animation instanceof PanZoomAnimation) {
-      this.animation.setTargetViewport(targetViewport);
+      this.animation.setTargetViewport(targetViewport, { x: xOrigin, y: yOrigin });
     }
   }
 
@@ -212,24 +236,18 @@ export class ChronoCanvas {
    */
   private startAnimationLoop(): void {
     if (this.animationFrameId !== null) {
-      return; // Already running
+      return;
     }
-    
     const animate = () => {
       if (this.animation && this.animation.isActive) {
-        // Get next frame from animation
         const newVisible = this.animation.produceNextVisible(this.viewport);
         this.setVisible(newVisible);
-        
-        // Continue loop
         this.animationFrameId = requestAnimationFrame(animate);
       } else {
-        // Animation finished
         this.animationFrameId = null;
         this.animation = null;
       }
     };
-    
     this.animationFrameId = requestAnimationFrame(animate);
   }
 
