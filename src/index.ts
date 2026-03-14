@@ -21,6 +21,7 @@ export { CanvasRenderer } from './renderer';
 export type { IContentSource } from './content-source';
 export { SingleImageSource } from './single-image-source';
 export { TiledImageSource, type TileConfig } from './tiled-image-source';
+export { CompositeContentSource } from './composite-content-source';
 
 // Gestures
 export { createGestureStream } from './gestures';

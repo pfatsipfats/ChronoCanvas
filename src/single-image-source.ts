@@ -1,8 +1,8 @@
 /**
  * Single image content source - wraps a single HTMLImageElement.
- * 
- * This is the simplest content source, representing a single image
- * centered at the origin in virtual space.
+ *
+ * Draws the image at a placement rect in global virtual space with
+ * aspect-preserving fit (letterbox/pillarbox).
  */
 
 import { IContentSource } from './content-source';
@@ -10,16 +10,17 @@ import { Viewport2d } from './viewport';
 
 /**
  * Content source for a single image.
- * 
+ *
  * @remarks
- * The image is positioned in virtual space with its center at (0, 0)
- * and dimensions matching the image's natural size.
- * 
+ * The image is drawn at the given placement rect in global virtual space.
+ * Aspect ratio is preserved by fitting the image inside the placement
+ * (letterbox or pillarbox as needed).
+ *
  * @example
  * ```typescript
  * const img = new Image();
  * img.onload = () => {
- *   const source = new SingleImageSource(img);
+ *   const source = new SingleImageSource(img, { x: 0, y: 0, width: 400, height: 300 });
  *   renderer.setContent(source);
  * };
  * img.src = 'image.jpg';
@@ -28,50 +29,65 @@ import { Viewport2d } from './viewport';
 export class SingleImageSource implements IContentSource {
   private image: HTMLImageElement;
   private bounds: { x: number; y: number; width: number; height: number };
-  
+
   /**
    * Creates a single image content source
    * @param image - The image element to render
+   * @param placement - Bounds in global virtual space where the image is drawn
    */
-  constructor(image: HTMLImageElement) {
+  constructor(
+    image: HTMLImageElement,
+    placement: { x: number; y: number; width: number; height: number }
+  ) {
     this.image = image;
-    
-    // Center image at origin in virtual space
-    // Image spans from (-width/2, -height/2) to (width/2, height/2)
-    this.bounds = {
-      x: -image.naturalWidth / 2,
-      y: -image.naturalHeight / 2,
-      width: image.naturalWidth,
-      height: image.naturalHeight
-    };
+    this.bounds = placement;
   }
-  
+
   /**
    * Gets the bounding box of the image in virtual space
    */
   getBounds(): { x: number; y: number; width: number; height: number } {
     return this.bounds;
   }
-  
+
   /**
    * Checks if the image is fully loaded
    */
   isReady(): boolean {
     return this.image.complete;
   }
-  
+
   /**
-   * Draws the image to the canvas
-   * @param ctx - Canvas rendering context
-   * @param viewport - Current viewport for coordinate transformations
+   * Draws the image to the canvas at the placement rect with aspect-preserving fit
    */
   draw(ctx: CanvasRenderingContext2D, viewport: Viewport2d): void {
-    // Convert virtual bounds to screen coordinates
-    const screenTopLeft = viewport.pointVirtualToScreen(this.bounds.x, this.bounds.y);
-    const screenWidth = viewport.widthVirtualToScreen(this.bounds.width);
-    const screenHeight = viewport.heightVirtualToScreen(this.bounds.height);
-    
-    // Draw the image
+    const pw = this.bounds.width;
+    const ph = this.bounds.height;
+    const iw = this.image.naturalWidth;
+    const ih = this.image.naturalHeight;
+
+    if (iw <= 0 || ih <= 0) return;
+
+    const childAspect = iw / ih;
+    const placementAspect = pw / ph;
+
+    let aw: number, ah: number, ax: number, ay: number;
+    if (childAspect > placementAspect) {
+      aw = pw;
+      ah = pw / childAspect;
+      ax = this.bounds.x;
+      ay = this.bounds.y + (ph - ah) / 2;
+    } else {
+      ah = ph;
+      aw = ph * childAspect;
+      ax = this.bounds.x + (pw - aw) / 2;
+      ay = this.bounds.y;
+    }
+
+    const screenTopLeft = viewport.pointVirtualToScreen(ax, ay);
+    const screenWidth = viewport.widthVirtualToScreen(aw);
+    const screenHeight = viewport.heightVirtualToScreen(ah);
+
     ctx.drawImage(
       this.image,
       screenTopLeft.x,
@@ -80,7 +96,7 @@ export class SingleImageSource implements IContentSource {
       screenHeight
     );
   }
-  
+
   /**
    * Cleanup resources (no-op for single images)
    */

@@ -261,7 +261,13 @@ export class ChronoCanvas {
    * ```
    */
   setContent(image: HTMLImageElement): void {
-    const source = new SingleImageSource(image);
+    const placement = {
+      x: -image.naturalWidth / 2,
+      y: -image.naturalHeight / 2,
+      width: image.naturalWidth,
+      height: image.naturalHeight
+    };
+    const source = new SingleImageSource(image, placement);
     this.renderer.setContent(source);
     this.renderer.render(this.viewport);
   }
