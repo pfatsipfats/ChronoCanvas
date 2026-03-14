@@ -87,6 +87,10 @@ export class PanZoomAnimation implements IAnimation {
   private direction: { X: number; Y: number } = { X: 0, Y: 0 };
   private pathLen: number = 0;
   
+  // Zoom-to-point: when set, center is computed from scale to keep this screen point fixed
+  private zoomOrigin: { x: number; y: number } | null = null;
+  private virtualAtZoomOrigin: { x: number; y: number } | null = null;
+  
   // Distance threshold for completion
   private readonly distanceThreshold = 0.1;
 
@@ -118,6 +122,11 @@ export class PanZoomAnimation implements IAnimation {
     return this._isActive;
   }
 
+  /** Current target visible region (for accumulating zoom during animation) */
+  get targetVisible(): VisibleRegion2d | null {
+    return this.estimatedEndViewport?.visible ?? null;
+  }
+
   /**
    * Sets the velocity multiplier for the animation
    * @param velocity - Velocity factor (typically 0.001-0.0025 range)
@@ -131,10 +140,21 @@ export class PanZoomAnimation implements IAnimation {
    * Allows dynamic updates during continuous gestures.
    * 
    * @param estimatedEndViewport - New target viewport state
+   * @param zoomOrigin - Optional screen coords (x,y) to keep fixed during zoom (zoom-to-point)
    */
-  setTargetViewport(estimatedEndViewport: Viewport2d): void {
+  setTargetViewport(estimatedEndViewport: Viewport2d, zoomOrigin?: { x: number; y: number }): void {
     this.estimatedEndViewport = estimatedEndViewport;
-    
+    this.prevFrameTime = Date.now();
+    this.zoomOrigin = zoomOrigin ?? null;
+    if (this.zoomOrigin) {
+      this.virtualAtZoomOrigin = this.previousFrameViewport.pointScreenToVirtual(
+        this.zoomOrigin.x,
+        this.zoomOrigin.y
+      );
+    } else {
+      this.virtualAtZoomOrigin = null;
+    }
+
     // Reset start viewport to previous frame (makes animation smooth during updates)
     const prevVis = this.previousFrameViewport.visible;
     this.startViewport = new Viewport2d(
@@ -166,13 +186,10 @@ export class PanZoomAnimation implements IAnimation {
     const dirX = this.direction.X;
     const dirY = this.direction.Y;
     this.pathLen = Math.sqrt(dirX * dirX + dirY * dirY);
-    
     // Normalize direction or set to zero if target is very close
     if (this.pathLen < this.distanceThreshold) {
       this.direction.X = 0;
       this.direction.Y = 0;
-      
-      // Check if scale also matches
       if (estimatedVisible.scale === prevVis.scale) {
         this._isActive = false;
       }
@@ -195,17 +212,15 @@ export class PanZoomAnimation implements IAnimation {
    */
   produceNextVisible(currentViewport: Viewport2d): VisibleRegion2d {
     if (!this.estimatedEndViewport) {
-      // No target set yet, return current
       this._isActive = false;
       return currentViewport.visible;
     }
     
     const startVisible = this.startViewport.visible;
     
-    // Calculate time delta
     const curTime = Date.now();
     const timeDiff = curTime - this.prevFrameTime;
-    const k = this.velocity * timeDiff;
+    const k = Math.min(this.velocity * timeDiff, 0.05);
     
     // Calculate distance to target
     const dx = this.endCenterInSC!.x - this.previousFrameCenterInSC.x;
@@ -232,23 +247,40 @@ export class PanZoomAnimation implements IAnimation {
     const scaleDistCurrent = updatedScale - startVisible.scale;
     
     // Stop if we've reached or passed the target
-    if (distToStart >= this.pathLen || 
-        Math.abs(scaleDistCurrent) > Math.abs(scaleDistToStart)) {
+    // For zoom-only (pathLen≈0), use scale completion; for pan, use path or scale
+    const done = this.pathLen < this.distanceThreshold
+      ? Math.abs(scaleDistCurrent) >= Math.abs(scaleDistToStart)
+      : distToStart >= this.pathLen || Math.abs(scaleDistCurrent) > Math.abs(scaleDistToStart);
+    if (done) {
       this._isActive = false;
       return this.estimatedEndViewport.visible;
     }
     
-    // Convert screen coordinates back to virtual coordinates
-    const virtPoint = this.startViewport.pointScreenToVirtual(
-      this.previousFrameCenterInSC.x,
-      this.previousFrameCenterInSC.y
-    );
-    
-    const updatedVisible = new VisibleRegion2d(
-      virtPoint.x,
-      virtPoint.y,
-      updatedScale
-    );
+    let updatedVisible: VisibleRegion2d;
+    if (this.zoomOrigin && this.virtualAtZoomOrigin) {
+      // Zoom-to-point: compute center so the point under cursor stays fixed
+      const { x: ox, y: oy } = this.zoomOrigin;
+      const { x: vx, y: vy } = this.virtualAtZoomOrigin;
+      const w = currentViewport.width;
+      const h = currentViewport.height;
+      const ar = currentViewport.aspectRatio;
+      const newCenterX = vx - (ox - w / 2) * updatedScale;
+      const newCenterY = vy - (oy - h / 2) * (ar * updatedScale);
+      updatedVisible = new VisibleRegion2d(newCenterX, newCenterY, updatedScale);
+    } else {
+      // Pan or mixed: convert screen center back to virtual
+      const tempViewport = new Viewport2d(
+        currentViewport.aspectRatio,
+        currentViewport.width,
+        currentViewport.height,
+        new VisibleRegion2d(prevFrameVisible.centerX, prevFrameVisible.centerY, updatedScale)
+      );
+      const virtPoint = tempViewport.pointScreenToVirtual(
+        this.previousFrameCenterInSC.x,
+        this.previousFrameCenterInSC.y
+      );
+      updatedVisible = new VisibleRegion2d(virtPoint.x, virtPoint.y, updatedScale);
+    }
     
     // Update tracking for next frame
     this.previousFrameViewport = new Viewport2d(

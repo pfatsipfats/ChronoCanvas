@@ -113,16 +113,18 @@ function createPinGestureStream(element: HTMLElement): Observable<PinGesture> {
  * Creates a zoom gesture stream from mouse wheel events.
  * Detects zoom gestures from mouse wheel operations.
  * 
- * @param element - Element to observe for zoom gestures
+ * @param element - Element to observe for zoom gestures (receives wheel events)
+ * @param coordinateElement - Element whose coordinate system to use (typically container matching viewport)
  * @param settings - Configuration for zoom sensitivity
  * @returns Observable stream of zoom gestures
  * 
  * @remarks
- * Uses native WheelEvent which is standardized in modern browsers.
- * No need for jquery-mousewheel plugin.
+ * Uses clientX/clientY with coordinateElement's rect for robust coordinates
+ * that match the viewport coordinate system.
  */
 function createZoomGestureStream(
   element: HTMLElement,
+  coordinateElement: HTMLElement,
   settings: Required<ChronoCanvasOptions>
 ): Observable<ZoomGesture> {
   const wheel$ = fromEvent<WheelEvent>(element, 'wheel');
@@ -140,12 +142,19 @@ function createZoomGestureStream(
       const scaleFactor = event.deltaY < 0 
         ? 1 / settings.zoomLevelFactor  // Zoom in
         : settings.zoomLevelFactor;      // Zoom out
-      
+      // Use offsetX/offsetY - position relative to event target (canvas)
+      const rect = coordinateElement.getBoundingClientRect();
+      const xOrigin = 'offsetX' in event && typeof (event as MouseEvent).offsetX === 'number'
+        ? (event as MouseEvent).offsetX
+        : event.clientX - rect.left;
+      const yOrigin = 'offsetY' in event && typeof (event as MouseEvent).offsetY === 'number'
+        ? (event as MouseEvent).offsetY
+        : event.clientY - rect.top;
       return {
         Type: 'Zoom' as const,
         Source: 'Mouse' as const,
-        xOrigin: event.offsetX,
-        yOrigin: event.offsetY,
+        xOrigin,
+        yOrigin,
         scaleFactor
       };
     })
@@ -183,10 +192,14 @@ function createZoomGestureStream(
  */
 export function createGestureStream(
   element: HTMLElement,
-  settings: Required<ChronoCanvasOptions>
+  containerOrSettings: HTMLElement | Required<ChronoCanvasOptions>,
+  settings?: Required<ChronoCanvasOptions>
 ): Observable<PanGesture | ZoomGesture | PinGesture> {
+  // (element, container, settings) or (element, settings) for backward compat
+  const coordEl = containerOrSettings instanceof HTMLElement ? containerOrSettings : element;
+  const opts = (settings ?? containerOrSettings) as Required<ChronoCanvasOptions>;
   const pan$ = createPanGestureStream(element);
-  const zoom$ = createZoomGestureStream(element, settings);
+  const zoom$ = createZoomGestureStream(element, coordEl, opts);
   const pin$ = createPinGestureStream(element);
   
   // Merge all gesture streams into one
