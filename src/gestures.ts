@@ -52,6 +52,10 @@ export interface ZoomGesture extends Gesture {
  */
 export interface PinGesture extends Gesture {
   readonly Type: 'Pin';
+  /** Cursor X position in canvas pixels at mousedown */
+  readonly xPos: number;
+  /** Cursor Y position in canvas pixels at mousedown */
+  readonly yPos: number;
 }
 
 /**
@@ -102,10 +106,15 @@ function createPinGestureStream(element: HTMLElement): Observable<PinGesture> {
   const mouseDown$ = fromEvent<MouseEvent>(element, 'mousedown');
   
   return mouseDown$.pipe(
-    map(() => ({
-      Type: 'Pin' as const,
-      Source: 'Mouse' as const
-    }))
+    map(event => {
+      const rect = element.getBoundingClientRect();
+      return {
+        Type: 'Pin' as const,
+        Source: 'Mouse' as const,
+        xPos: event.clientX - rect.left,
+        yPos: event.clientY - rect.top
+      };
+    })
   );
 }
 

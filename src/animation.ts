@@ -268,14 +268,10 @@ export class PanZoomAnimation implements IAnimation {
       const newCenterY = vy - (oy - h / 2) * (ar * updatedScale);
       updatedVisible = new VisibleRegion2d(newCenterX, newCenterY, updatedScale);
     } else {
-      // Pan or mixed: convert screen center back to virtual
-      const tempViewport = new Viewport2d(
-        currentViewport.aspectRatio,
-        currentViewport.width,
-        currentViewport.height,
-        new VisibleRegion2d(prevFrameVisible.centerX, prevFrameVisible.centerY, updatedScale)
-      );
-      const virtPoint = tempViewport.pointScreenToVirtual(
+      // Pan: convert screen center back to virtual using the FIXED startViewport,
+      // matching the original ChronoZoom viewport-animation.js. Using a viewport
+      // whose center changes each frame causes compounding drift and overshoot.
+      const virtPoint = this.startViewport.pointScreenToVirtual(
         this.previousFrameCenterInSC.x,
         this.previousFrameCenterInSC.y
       );
