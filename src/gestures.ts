@@ -4,13 +4,13 @@
  */
 
 import { Observable, fromEvent, merge } from 'rxjs';
-import { map, switchMap, takeUntil, pairwise } from 'rxjs/operators';
+import { filter, map, switchMap, take, takeUntil, pairwise } from 'rxjs/operators';
 import { ChronoCanvasOptions } from './types';
 
 /**
  * Gesture type discriminator
  */
-export type GestureType = 'Pan' | 'Zoom' | 'Pin';
+export type GestureType = 'Pan' | 'Zoom' | 'Pin' | 'Click';
 
 /**
  * Base interface for all gestures
@@ -55,6 +55,18 @@ export interface PinGesture extends Gesture {
   /** Cursor X position in canvas pixels at mousedown */
   readonly xPos: number;
   /** Cursor Y position in canvas pixels at mousedown */
+  readonly yPos: number;
+}
+
+/**
+ * Click gesture - a mousedown followed by mouseup with < 5px of movement.
+ * Used for hit-testing timelines and infodots.
+ */
+export interface ClickGesture extends Gesture {
+  readonly Type: 'Click';
+  /** Cursor X position in canvas pixels at mouseup */
+  readonly xPos: number;
+  /** Cursor Y position in canvas pixels at mouseup */
   readonly yPos: number;
 }
 
@@ -114,6 +126,39 @@ function createPinGestureStream(element: HTMLElement): Observable<PinGesture> {
         xPos: event.clientX - rect.left,
         yPos: event.clientY - rect.top
       };
+    })
+  );
+}
+
+/**
+ * Creates a click gesture stream.
+ * Fires when mousedown and mouseup occur within 5px of each other (no drag).
+ * Exported so it can be used independently of the full gesture stream.
+ *
+ * @param element - Element to observe
+ * @returns Observable stream of click gestures
+ */
+export function createClickGestureStream(element: HTMLElement): Observable<ClickGesture> {
+  const mouseDown$ = fromEvent<MouseEvent>(element, 'mousedown');
+  const mouseUp$   = fromEvent<MouseEvent>(document, 'mouseup');
+
+  return mouseDown$.pipe(
+    switchMap(down => {
+      const rect = element.getBoundingClientRect();
+      return mouseUp$.pipe(
+        take(1),
+        filter(up => {
+          const dx = up.clientX - down.clientX;
+          const dy = up.clientY - down.clientY;
+          return Math.sqrt(dx * dx + dy * dy) < 5;
+        }),
+        map(up => ({
+          Type:   'Click' as const,
+          Source: 'Mouse' as const,
+          xPos: up.clientX - rect.left,
+          yPos: up.clientY - rect.top,
+        }))
+      );
     })
   );
 }
@@ -203,14 +248,15 @@ export function createGestureStream(
   element: HTMLElement,
   containerOrSettings: HTMLElement | Required<ChronoCanvasOptions>,
   settings?: Required<ChronoCanvasOptions>
-): Observable<PanGesture | ZoomGesture | PinGesture> {
+): Observable<PanGesture | ZoomGesture | PinGesture | ClickGesture> {
   // (element, container, settings) or (element, settings) for backward compat
   const coordEl = containerOrSettings instanceof HTMLElement ? containerOrSettings : element;
   const opts = (settings ?? containerOrSettings) as Required<ChronoCanvasOptions>;
-  const pan$ = createPanGestureStream(element);
-  const zoom$ = createZoomGestureStream(element, coordEl, opts);
-  const pin$ = createPinGestureStream(element);
-  
+  const pan$   = createPanGestureStream(element);
+  const zoom$  = createZoomGestureStream(element, coordEl, opts);
+  const pin$   = createPinGestureStream(element);
+  const click$ = createClickGestureStream(element);
+
   // Merge all gesture streams into one
-  return merge(pan$, zoom$, pin$);
+  return merge(pan$, zoom$, pin$, click$);
 }

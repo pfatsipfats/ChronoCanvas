@@ -1,11 +1,12 @@
 /**
  * Main ChronoCanvas controller - orchestrates all components.
+ * General-purpose navigable canvas: pan, zoom, elliptical zoom animations.
  */
 
 import { Subscription } from 'rxjs';
 import { IRenderer, IAnimation, ChronoCanvasOptions } from './types';
 import { VisibleRegion2d, Viewport2d } from './viewport';
-import { createGestureStream, PanGesture, ZoomGesture, PinGesture } from './gestures';
+import { createGestureStream, PanGesture, ZoomGesture, PinGesture, ClickGesture } from './gestures';
 import { EllipticalZoom, PanZoomAnimation } from './animation';
 import { CanvasRenderer } from './renderer';
 import { mergeSettings } from './settings';
@@ -13,14 +14,13 @@ import { IContentSource } from './content-source';
 import { SingleImageSource } from './single-image-source';
 
 /**
- * Main controller for the ChronoCanvas library.
+ * General-purpose navigable canvas controller.
  * Orchestrates viewport, gestures, animations, and rendering.
- * 
+ *
  * Responsibilities:
  * - Coordinate between modules (orchestration only)
  * - Manage lifecycle (initialization, cleanup)
- * - Provide public API
- * 
+ * - Provide public API (pan, zoom, fitToView, content sources)
  */
 export class ChronoCanvas {
   private viewport: Viewport2d;
@@ -29,14 +29,13 @@ export class ChronoCanvas {
   private gestureSubscription: Subscription | null = null;
   private animationFrameId: number | null = null;
   private settings: Required<ChronoCanvasOptions>;
-  
+
   private readonly container: HTMLElement;
 
   /**
-   * Creates a new ChronoCanvas instance
-   * 
+   * Creates a new ChronoCanvas instance.
+   *
    * @param container - HTML element to render into
-   * @param aspectRatio - Aspect ratio of the viewport (default: 1.0) for uniform image scaling
    * @param options - Configuration options (merged with defaults)
    * @param renderer - Custom renderer (optional, defaults to CanvasRenderer)
    * 
@@ -73,47 +72,37 @@ export class ChronoCanvas {
     this.renderer.render(this.viewport);
   }
 
-  /**
-   * Sets up the gesture event stream and subscriptions
-   */
+  // ── Private: gesture setup ──────────────────────────────────────────────
+
   private setupGestures(): void {
-    // Get the canvas element from renderer
     const canvas = (this.renderer as CanvasRenderer).getCanvas();
-    
-    // Create gesture stream (use canvas for coordinates - matches zoom calculation)
     const gestures$ = createGestureStream(canvas, canvas, this.settings);
-    
-    // Subscribe to gestures
     this.gestureSubscription = gestures$.subscribe(gesture => {
       this.handleGesture(gesture);
     });
   }
 
-  /**
-   * Handles a gesture event
-   * @param gesture - The gesture to handle
-   */
-  private handleGesture(gesture: PanGesture | ZoomGesture | PinGesture): void {
+  private handleGesture(gesture: PanGesture | ZoomGesture | PinGesture | ClickGesture): void {
     switch (gesture.Type) {
       case 'Pin':
+      case 'Click':
+        // Both stop any running animation; Click is otherwise handled externally
+        // (e.g. by TimeCanvas) via its own createClickGestureStream subscription.
         this.stopAnimation();
         break;
-        
+
       case 'Pan':
         this.handlePan(gesture.xOffset, gesture.yOffset);
         break;
-        
+
       case 'Zoom':
         this.handleZoom(gesture.xOrigin, gesture.yOrigin, gesture.scaleFactor);
         break;
     }
   }
 
-  /**
-   * Handles pan gesture
-   * @param xOffset - Horizontal offset in pixels
-   * @param yOffset - Vertical offset in pixels
-   */
+  // ── Private: pan / zoom / animation ────────────────────────────────────
+
   private handlePan(xOffset: number, yOffset: number): void {
     // Use the animation's current target as the base for accumulation (not the lagged
     // rendered viewport). This mirrors how handleZoom accumulates rapid scroll events,
@@ -162,6 +151,7 @@ export class ChronoCanvas {
    * then convert that screen position to virtual coordinates (using current viewport).
    */
   private handleZoom(xOrigin: number, yOrigin: number, scaleFactor: number): void {
+    // Use canvas dimensions - must match renderer's coordinate system
     // Use canvas dimensions - must match renderer's coordinate system
     const canvas = (this.renderer as CanvasRenderer).getCanvas();
     const width = canvas.width;
@@ -238,9 +228,8 @@ export class ChronoCanvas {
    * Starts the animation loop
    */
   private startAnimationLoop(): void {
-    if (this.animationFrameId !== null) {
-      return;
-    }
+    if (this.animationFrameId !== null) return;
+
     const animate = () => {
       if (this.animation && this.animation.isActive) {
         const newVisible = this.animation.produceNextVisible(this.viewport);
@@ -265,15 +254,11 @@ export class ChronoCanvas {
     this.animation = null;
   }
 
+  // ── Public API ───────────────────────────────────────────────────────────
+
   /**
-   * Sets the content to display
-   * 
-   * @param image - Image element to render
-   * 
-   * @remarks
-   * Convenience method that automatically wraps the image in a SingleImageSource.
-   * For more advanced usage (e.g., tiled images), use setContentSource() instead.
-   * 
+   * Sets the content to display (convenience wrapper for a single image).
+   *
    * @example
    * ```typescript
    * const img = new Image();
@@ -283,10 +268,10 @@ export class ChronoCanvas {
    */
   setContent(image: HTMLImageElement): void {
     const placement = {
-      x: -image.naturalWidth / 2,
+      x: -image.naturalWidth  / 2,
       y: -image.naturalHeight / 2,
-      width: image.naturalWidth,
-      height: image.naturalHeight
+      width:  image.naturalWidth,
+      height: image.naturalHeight,
     };
     const source = new SingleImageSource(image, placement);
     this.renderer.setContent(source);
@@ -294,22 +279,12 @@ export class ChronoCanvas {
   }
 
   /**
-   * Sets the content source to display
-   * 
-   * @param source - Content source (single image, tiled image, etc.)
-   * 
-   * @remarks
-   * Advanced method for using custom content sources like TiledImageSource.
-   * 
+   * Sets the content source to display.
+   * Use this for tiled images, composites, or any custom IContentSource.
+   *
    * @example
    * ```typescript
-   * const tiledSource = new TiledImageSource({
-   *   baseUrl: 'https://example.com/tiles/',
-   *   rows: 5,
-   *   cols: 4,
-   *   tileWidth: 1024,
-   *   tileHeight: 1024
-   * });
+   * const tiledSource = new TiledImageSource({ ... });
    * canvas.setContentSource(tiledSource);
    * ```
    */
@@ -319,23 +294,10 @@ export class ChronoCanvas {
   }
 
   /**
-   * Animates viewport to show specific region using elliptical zoom
-   * 
-   * @param region - Target visible region
-   * @param immediate - If true, jump without animation (default: false)
-   * 
-   * @example
-   * ```typescript
-   * // Zoom to a specific region
-   * canvas.zoomTo({
-   *   centerX: 1000,
-   *   centerY: 500,
-   *   scale: 0.1
-   * });
-   * 
-   * // Jump immediately without animation
-   * canvas.zoomTo(region, true);
-   * ```
+   * Animates the viewport to a specific region using elliptical zoom.
+   *
+   * @param region - Target { centerX, centerY, scale }
+   * @param immediate - Jump without animation if true (default: false)
    */
   zoomTo(
     region: { centerX: number; centerY: number; scale: number },
@@ -346,7 +308,7 @@ export class ChronoCanvas {
       region.centerY,
       region.scale
     );
-    
+
     if (immediate) {
       // Jump directly
       this.stopAnimation();
@@ -406,49 +368,32 @@ export class ChronoCanvas {
    * 
    * @example
    * ```typescript
-   * window.addEventListener('resize', () => {
-   *   canvas.updateViewport();
-   * });
+   * window.addEventListener('resize', () => canvas.updateViewport());
    * ```
    */
   updateViewport(): void {
     const rect = this.container.getBoundingClientRect();
-    
-    // ChronoZoom's aspect ratio: 1.0 for uniform X/Y scaling in image display
-    const aspectRatio = 1.0;
-    
-    // Keep the same visible region (center and scale) - just update dimensions
-    // This makes the image stay at the same zoom level; the window size change
-    // simply reveals more or less of the image
     this.viewport = new Viewport2d(
-      aspectRatio,
+      this.settings.aspectRatio,
       rect.width,
       rect.height,
-      this.viewport.visible  // Keep existing center and scale
+      this.viewport.visible
     );
     this.renderer.render(this.viewport);
   }
 
   /**
-   * Cleans up resources and unsubscribes from events
-   * 
-   * @remarks
-   * Always call this when you're done with the ChronoCanvas instance
-   * to prevent memory leaks.
-   * 
-   * @example
-   * ```typescript
-   * canvas.destroy();
-   * ```
+   * Cleans up all resources and event subscriptions.
+   * Always call this when done with the instance.
    */
   destroy(): void {
     this.stopAnimation();
-    
+
     if (this.gestureSubscription) {
       this.gestureSubscription.unsubscribe();
       this.gestureSubscription = null;
     }
-    
+
     this.renderer.destroy();
   }
 }
