@@ -96,7 +96,6 @@ export class ChronoCanvas {
   private handleGesture(gesture: PanGesture | ZoomGesture | PinGesture): void {
     switch (gesture.Type) {
       case 'Pin':
-        // Stop any active animation
         this.stopAnimation();
         break;
         
@@ -116,32 +115,36 @@ export class ChronoCanvas {
    * @param yOffset - Vertical offset in pixels
    */
   private handlePan(xOffset: number, yOffset: number): void {
-    // Convert screen offset to virtual offset
+    // Use the animation's current target as the base for accumulation (not the lagged
+    // rendered viewport). This mirrors how handleZoom accumulates rapid scroll events,
+    // and ensures the full drag distance is encoded in the target even when the
+    // animation hasn't caught up yet.
+    const baseVisible = this.animation instanceof PanZoomAnimation && this.animation.targetVisible
+      ? this.animation.targetVisible
+      : this.viewport.visible;
+
     const virtualOffset = this.viewport.vectorScreenToVirtual(xOffset, yOffset);
-    
-    // Calculate target viewport
+
     const targetVisible = new VisibleRegion2d(
-      this.viewport.visible.centerX + virtualOffset.x,
-      this.viewport.visible.centerY + virtualOffset.y,
-      this.viewport.visible.scale
+      baseVisible.centerX + virtualOffset.x,
+      baseVisible.centerY + virtualOffset.y,
+      baseVisible.scale
     );
-    
     const targetViewport = new Viewport2d(
       this.settings.aspectRatio,
       this.viewport.width,
       this.viewport.height,
       targetVisible
     );
-    
+
     // Create or update PanZoomAnimation for smooth inertia
     if (!this.animation || !(this.animation instanceof PanZoomAnimation)) {
-      // Create new pan animation
       const panAnimation = new PanZoomAnimation(this.viewport);
       panAnimation.setVelocity(this.settings.panSpeedFactor * 0.001);
       this.animation = panAnimation;
       this.startAnimationLoop();
     }
-    
+
     // Update target (supports continuous gestures)
     if (this.animation instanceof PanZoomAnimation) {
       this.animation.setTargetViewport(targetViewport);
