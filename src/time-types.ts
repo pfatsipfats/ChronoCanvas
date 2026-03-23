@@ -2,9 +2,9 @@
  * Time Canvas data model — hierarchical timelines with infodots.
  *
  * Dates are expressed as:
- *   "YYYY-MM-DD"  — CE date
- *   "-YYYY-MM-DD" — BCE date
- *   "present"     — resolves to the current date (only valid in `end` fields)
+ *   "YYYY-MM-DD" — CE date (year, month, day; three parts required)
+ *   "-Y"         — BCE year only (Y is a positive integer, e.g. "-500")
+ *   "present"    — resolves to the current date (only valid in `end` fields)
  */
 
 /**
@@ -17,10 +17,10 @@ export interface TimeCanvasTimeline {
   /** Display label rendered inside the timeline rectangle */
   title: string;
 
-  /** Start date: "YYYY-MM-DD" or "-YYYY-MM-DD" for BCE */
+  /** Start date: "YYYY-MM-DD" (CE) or "-Y" (BCE year only) */
   start: string;
 
-  /** End date: "YYYY-MM-DD", "-YYYY-MM-DD", or "present" */
+  /** End date: "YYYY-MM-DD", "-Y", or "present" */
   end: string;
 
   /**
@@ -47,7 +47,7 @@ export interface TimeCanvasInfodot {
   /** Short label shown near the dot and in the expanded card header */
   title: string;
 
-  /** Point in time: "YYYY-MM-DD" or "-YYYY-MM-DD" for BCE */
+  /** Point in time: "YYYY-MM-DD" (CE) or "-Y" (BCE year only) */
   time: string;
 
   /** Optional image displayed in the expanded card */

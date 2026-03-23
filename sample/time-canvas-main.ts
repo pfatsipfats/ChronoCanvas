@@ -5,7 +5,14 @@
  * Uses TimeCanvas (the domain wrapper) rather than ChronoCanvas directly.
  */
 
-import { TimeCanvas } from 'chronocanvas';
+import {
+  TimeCanvas,
+  TimeScaleRuler,
+  CalendarTickSource,
+  DateTickSource,
+  CosmosTickSource,
+  CANVAS_WIDTH,
+} from 'chronocanvas';
 import type { TimeCanvasTimeline } from 'chronocanvas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,7 +21,7 @@ import type { TimeCanvasTimeline } from 'chronocanvas';
 
 const WORLD_HISTORY: TimeCanvasTimeline = {
   title: 'Human Civilization',
-  start: '-0500-01-01',
+  start: '-500',
   end:   'present',
 
   timelines: [
@@ -22,7 +29,7 @@ const WORLD_HISTORY: TimeCanvasTimeline = {
     // ── Ancient World (-500 → 500) ─────────────────────────────────────────
     {
       title: 'Ancient World',
-      start: '-0500-01-01',
+      start: '-500',
       end:   '0500-01-01',
 
       timelines: [
@@ -30,48 +37,48 @@ const WORLD_HISTORY: TimeCanvasTimeline = {
         // Classical Greece & Rome
         {
           title: 'Classical Greece & Rome',
-          start: '-0500-01-01',
+          start: '-500',
           end:   '0476-09-04',
           infodots: [
             {
               title: 'Battle of Marathon',
-              time:  '-0490-09-12',
+              time:  '-490',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Battle_of_marathon.png/320px-Battle_of_marathon.png' },
               text:  'Greek city-states repel the Persian invasion. A defining moment for Western democracy.',
             },
             {
               title: 'Parthenon completed',
-              time:  '-0432-01-01',
+              time:  '-432',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/The_Parthenon_in_Athens.jpg/320px-The_Parthenon_in_Athens.jpg' },
               text:  'Crowning achievement of Classical Athens, dedicated to the goddess Athena.',
             },
             {
               title: 'Death of Socrates',
-              time:  '-0399-01-01',
+              time:  '-399',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/David_-_The_Death_of_Socrates.jpg/320px-David_-_The_Death_of_Socrates.jpg' },
               text:  'The philosopher is condemned and executes himself with hemlock, inspiring Plato\'s dialogues.',
             },
             {
               title: 'Plato\'s Academy founded',
-              time:  '-0387-01-01',
+              time:  '-387',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Plato-raphael.jpg/240px-Plato-raphael.jpg' },
               text:  'First institution of higher learning in the Western world, operating for nearly 900 years.',
             },
             {
               title: 'Alexander the Great',
-              time:  '-0323-06-10',
+              time:  '-323',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Alexander_the_Great_mosaic.jpg/320px-Alexander_the_Great_mosaic.jpg' },
               text:  'Death of Alexander at 32. His conquests spread Greek culture from Egypt to Central Asia.',
             },
             {
               title: 'Julius Caesar assassinated',
-              time:  '-0044-03-15',
+              time:  '-44',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Vincenzo_Camuccini_-_La_morte_di_Cesare.jpg/320px-Vincenzo_Camuccini_-_La_morte_di_Cesare.jpg' },
               text:  '"Et tu, Brute?" Caesar\'s murder triggers the end of the Roman Republic.',
             },
             {
               title: 'Augustus — first Roman Emperor',
-              time:  '-0027-01-16',
+              time:  '-27',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Statue-Augustus.jpg/200px-Statue-Augustus.jpg' },
               text:  'Octavian becomes Augustus, founding the Roman Empire and beginning the Pax Romana.',
             },
@@ -93,30 +100,30 @@ const WORLD_HISTORY: TimeCanvasTimeline = {
         // Hellenistic Science
         {
           title: 'Hellenistic Science',
-          start: '-0323-01-01',
+          start: '-323',
           end:   '0150-01-01',
           infodots: [
             {
               title: 'Euclid\'s Elements',
-              time:  '-0300-01-01',
+              time:  '-300',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Oxyrhynchus_papyrus_with_Euclid%27s_Elements.jpg/240px-Oxyrhynchus_papyrus_with_Euclid%27s_Elements.jpg' },
               text:  'Geometry codified in 13 books. The most influential mathematics textbook ever written.',
             },
             {
               title: 'Archimedes',
-              time:  '-0250-01-01',
+              time:  '-250',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Domenico-Fetti_Archimedes_1620.jpg/240px-Domenico-Fetti_Archimedes_1620.jpg' },
               text:  'Pioneer of calculus concepts, hydrostatics, and the lever. "Give me a place to stand…"',
             },
             {
               title: 'Eratosthenes measures Earth',
-              time:  '-0240-01-01',
+              time:  '-240',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Eratosthenes_measure_of_Earth_circumference.svg/240px-Eratosthenes_measure_of_Earth_circumference.svg.png' },
               text:  'Using shadows and geometry, he calculates Earth\'s circumference to within 2% accuracy.',
             },
             {
               title: 'Library of Alexandria',
-              time:  '-0283-01-01',
+              time:  '-283',
               image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Ancientlibraryalex.jpg/320px-Ancientlibraryalex.jpg' },
               text:  'The largest library in the ancient world, housing hundreds of thousands of scrolls.',
             },
@@ -134,7 +141,7 @@ const WORLD_HISTORY: TimeCanvasTimeline = {
       infodots: [
         {
           title: 'Confucius',
-          time:  '-0479-04-11',
+          time:  '-479',
           image: { url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Confucius_Tang_Dynasty.jpg/200px-Confucius_Tang_Dynasty.jpg' },
           text:  'Death of Confucius. His philosophy of ethics, social harmony, and moral governance shapes East Asian civilization.',
         },
@@ -460,3 +467,44 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('resize', () => tc.updateViewport());
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Timescale ruler
+// ─────────────────────────────────────────────────────────────────────────────
+
+const rulerCanvas = document.getElementById('timescale') as HTMLCanvasElement;
+const HALF_CANVAS = CANVAS_WIDTH / 2;
+
+/**
+ * Converts the current ChronoCanvas viewport into a visible year range
+ * by inverting the TimeMapper formula:
+ *   virtualX = (year - rootStart) / totalSpan * CANVAS_WIDTH - HALF_CANVAS
+ *   ↔ year   = rootStart + (virtualX + HALF_CANVAS) / CANVAS_WIDTH * totalSpan
+ */
+function getVisibleYearRange(): { leftYear: number; rightYear: number } {
+  const vp    = tc.getViewport();
+  const range = tc.getRootTimeRange();
+
+  if (!range) return { leftYear: -500, rightYear: new Date().getFullYear() };
+
+  const { startYear, endYear } = range;
+  const totalSpan = endYear - startYear;
+
+  const leftVX  = vp.visible.centerX - (vp.width  / 2) * vp.visible.scale;
+  const rightVX = vp.visible.centerX + (vp.width  / 2) * vp.visible.scale;
+
+  return {
+    leftYear:  startYear + (leftVX  + HALF_CANVAS) / CANVAS_WIDTH * totalSpan,
+    rightYear: startYear + (rightVX + HALF_CANVAS) / CANVAS_WIDTH * totalSpan,
+  };
+}
+
+const ruler = new TimeScaleRuler(
+  rulerCanvas,
+  getVisibleYearRange,
+  // Sources are tried in order; first match wins.
+  // CosmosTickSource activates only for geological time (leftYear < -10 000).
+  [new CosmosTickSource(), new CalendarTickSource(), new DateTickSource()],
+);
+
+ruler.start();

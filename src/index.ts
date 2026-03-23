@@ -45,3 +45,12 @@ export { ChronoCanvas as default } from './canvas-controller';
 
 export { TimeCanvas } from './time-canvas-controller';
 export type { TimeCanvasTimeline, TimeCanvasInfodot } from './time-types';
+
+// Time-mapper utilities (useful for computing year↔virtualX conversions)
+export { CANVAS_WIDTH, CANVAS_HEIGHT, parseDate, TimeMapper } from './time-mapper';
+
+// ── Timescale ruler ────────────────────────────────────────────────────────
+
+export { TimeScaleRuler, CalendarTickSource, DateTickSource, CosmosTickSource } from './timescale';
+export type { ITickSource, Tick, RulerOptions } from './timescale';
+export { isLeapYear, decimalYearToDate, dateToDecimalYear, DAYS_IN_MONTH } from './timescale';

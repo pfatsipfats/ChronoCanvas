@@ -13,6 +13,7 @@
 import { Subscription } from 'rxjs';
 import { ChronoCanvas } from './canvas-controller';
 import { ChronoCanvasOptions } from './types';
+import { Viewport2d } from './viewport';
 import { createClickGestureStream } from './gestures';
 import { TimeCanvasTimeline } from './time-types';
 import { TimeMapper } from './time-mapper';
@@ -23,6 +24,7 @@ export class TimeCanvas {
   private readonly canvas: ChronoCanvas;
   private readonly container: HTMLElement;
   private timeCanvasSource: TimeCanvasSource | null = null;
+  private timeMapper: TimeMapper | null = null;
   private clickSubscription: Subscription | null = null;
 
   /**
@@ -112,6 +114,7 @@ export class TimeCanvas {
    */
   setData(root: TimeCanvasTimeline): void {
     const mapper     = new TimeMapper(root);
+    this.timeMapper  = mapper;
     const positioned = layoutTimeCanvas(root, mapper);
     const source     = new TimeCanvasSource(positioned);
     this.timeCanvasSource = source;
@@ -148,6 +151,34 @@ export class TimeCanvas {
    */
   updateViewport(): void {
     this.canvas.updateViewport();
+  }
+
+  /**
+   * Returns the current Viewport2d from the underlying ChronoCanvas.
+   *
+   * Useful for computing the visible year range to drive a TimeScaleRuler:
+   * ```typescript
+   * const vp = tc.getViewport();
+   * const leftVX = vp.visible.centerX - (vp.width / 2) * vp.visible.scale;
+   * ```
+   */
+  getViewport(): Viewport2d {
+    return this.canvas.getViewport();
+  }
+
+  /**
+   * Returns the root timeline's start and end in decimal astronomical years,
+   * or null if `setData` has not yet been called.
+   *
+   * Use this together with `getViewport()` to convert virtual-X coordinates
+   * back to calendar years for the timescale ruler.
+   */
+  getRootTimeRange(): { startYear: number; endYear: number } | null {
+    if (!this.timeMapper) return null;
+    return {
+      startYear: this.timeMapper.startYear,
+      endYear:   this.timeMapper.endYear,
+    };
   }
 
   /**
